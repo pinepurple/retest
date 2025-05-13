@@ -23,7 +23,16 @@ if 'show_no_data_message' not in st.session_state:
 
 #---------------------------------------------session_state頁面作動---------------------------------------------
 if  st.session_state['stage'] == 'login':
-    pf.login_actions() #登入頁面
+    registration_status = pf.check_registration_status()
+
+    if registration_status == "開放報名":
+        pf.login_actions() #登入頁面
+    elif registration_status == "尚未開放":
+        st.warning("補考報名尚未開放，請稍後再試。")
+    elif registration_status == "已結束":
+        st.warning("補考報名已結束。")
+    else:
+        st.info("補考報名時間設定未完成，請聯繫管理員。")
 
 elif st.session_state['stage'] == 'retest_form':
     pf.retest_form_actions()

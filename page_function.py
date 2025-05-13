@@ -2,7 +2,7 @@
 
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+import datetime
 import time
 import googlesheet_process as gp
 import pytz
@@ -41,15 +41,14 @@ def save_retest_records(student_common_data, selected_subjects_list): #將資料
         st.error(f"儲存報名資料時發生錯誤：{e}")
 
 def login_action(): #登入頁面
-    gc_instance = gp.get_gspread_client()
     class_name = st.session_state.get('class_name_input') #班級
     seat_number = st.session_state.get('seat_number_input') #座號
     grade = st.session_state.get('grade_input') #年級
     
     st.session_state['show_no_data_message'] = False # 在每次嘗試登入時，先將訊息標記重置為 False
 
-    retest_data = gp.get_google_sheet_worksheet(gc_instance, "補考名單", grade).get_all_records() #儲存補考者名單的檔案
-    data_from_retest_list = gp.get_google_sheet_worksheet(gc_instance, "補考者報名資料", grade) #儲存補考者報名資料的檔案
+    retest_data = gp.get_google_sheet_worksheet("補考名單", grade).get_all_records() #儲存補考者名單的檔案
+    data_from_retest_list = gp.get_google_sheet_worksheet("補考者報名資料", grade) #儲存補考者報名資料的檔案
     st.session_state['data_from_retest_list'] = data_from_retest_list
     
     if len(class_name) != 2: grade_class_name = grade + "0" + class_name
@@ -143,3 +142,19 @@ def success_actions():
     st.title('報名成功')
     st.write('您已成功報名補考！')
     st.button('返回首頁', on_click=back_front_page, key='back_button')
+
+def check_registration_status():
+    sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "補考系統開放時間")
+    start_time_str = sheet.cell(2, 1).value
+    end_time_str = sheet.cell(2, 2).value
+
+    start_time = datetime.datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S")
+    end_time = datetime.datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S")
+    now = datetime.datetime.now()
+
+    if start_time <= now <= end_time:
+        return "開放報名"
+    elif now < start_time:
+        return "尚未開放"
+    else:
+        return "已結束"

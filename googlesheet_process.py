@@ -25,9 +25,10 @@ def get_gspread_client():
 
 #-------------------------------------------goodsheet檔案開啟----------------------------------------------------
 @st.cache_resource(ttl=3600) # 緩存工作表物件，例如緩存 1 小時
-def get_google_sheet_worksheet(_gc: gspread.Client, sheet_name: str, worksheet_name: str = "1"):
+def get_google_sheet_worksheet(sheet_name: str, worksheet_name: str = "1"):
+    gc_client = get_gspread_client()
     try:
-        spreadsheet = _gc.open(sheet_name) # 開啟 Google 工作表 (by 名稱)
+        spreadsheet = gc_client.open(sheet_name) # 開啟 Google 工作表 (by 名稱)
         worksheet = spreadsheet.worksheet(worksheet_name) # 選取指定名稱的工作表
         return worksheet
     except gspread.exceptions.SpreadsheetNotFound:

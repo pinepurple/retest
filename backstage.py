@@ -1,6 +1,7 @@
 import streamlit as st
 import time
 import backstage_function as bf
+import googlesheet_process as gp
 
 ADMIN_USERNAME = st.secrets.get("admin", {}).get("username", "admin_user")
 ADMIN_PASSWORD = st.secrets.get("admin", {}).get("password", "admin_pass")
@@ -8,6 +9,7 @@ ADMIN_PASSWORD = st.secrets.get("admin", {}).get("password", "admin_pass")
 # --- 主應用程式流程控制 ---
 def main_app():
     st.set_page_config(page_title="後台管理系統", page_icon="lock") # 為後台應用程式設定獨立的頁面配置
+
     # 初始化管理員登入狀態
     if 'admin_logged_in' not in st.session_state:
         st.session_state['admin_logged_in'] = False
@@ -19,13 +21,15 @@ def main_app():
     if not st.session_state['admin_logged_in']:
         # --- 管理員登入頁面 ---
         st.title("後台管理系統")
-        st.info("請輸入管理員帳號密碼")
+        st.info("請輸入管理員帳號密碼 ( 預設帳號：user；預設密碼：pass )")
+        sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "登入帳密")
+        sheet_data = sheet.get_all_records()
 
         username = st.text_input("帳號", key="admin_username_input")
         password = st.text_input("密碼", type="password", key="admin_password_input")
 
         if st.button("登入", key="admin_login_button"):
-            if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            if (username == ADMIN_USERNAME and password == ADMIN_PASSWORD) or (username == sheet_data["使用者名稱"] and password == sheet_data["密碼"]):
                 top_level_message_placeholder.success("登入成功！")
                 time.sleep(1)
                 top_level_message_placeholder.empty() # 清空訊息
@@ -51,6 +55,9 @@ def main_app():
         if st.sidebar.button("生成補考考生座位表", key="sidebar_retest_seat"):
             st.session_state['current_page'] = 'retest_seat'
             st.rerun()
+        if st.sidebar.button("補考系統開放時間", key="sidebar_time_set"):
+            st.session_state['current_page'] = 'time_set'
+            st.rerun()
         if st.sidebar.button("更改帳號密碼", key="sidebar_change_password"):
             st.session_state['current_page'] = 'change_password'
             st.rerun()
@@ -73,6 +80,8 @@ def main_app():
             bf.clear_retest_list_page()
         elif st.session_state['current_page'] == 'retest_seat':
             bf.retest_seat()
+        elif st.session_state['current_page'] == 'time_set':
+            bf.time_set()
         elif st.session_state['current_page'] == 'change_password':
             bf.change_password_page()
 

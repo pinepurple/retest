@@ -6,10 +6,10 @@ import googlesheet_process as gp
 import gspread
 import time
 import io
+import datetime
 
 def upload_retest_list_page():
     st.title("上傳補考名單")
-    gc_client = gp.get_gspread_client()
     st.info("請上傳補考名單的 Excel 檔案，檔案格式必須為 .xlsx。")
 
     col1, col2 = st.columns([3, 1], gap="small")
@@ -58,7 +58,7 @@ def upload_retest_list_page():
                 return False
 
             try: # 獲取目標工作表
-                worksheet = gp.get_google_sheet_worksheet(gc_client, "補考名單", grade)
+                worksheet = gp.get_google_sheet_worksheet("補考名單", grade)
             except Exception as e:
                 st.error(f"無法取得 Google Sheet 工作表 '補考名單 - {grade}'，請確認試算表名稱和工作表名稱是否正確，或服務帳戶權限。")
                 st.exception(e)
@@ -102,7 +102,6 @@ def upload_retest_list_page():
 
 def clear_retest_list_page():
     st.title("清空補考名單")
-    gc_client = gp.get_gspread_client()
 
     col1, col2 = st.columns([3, 1], gap="small")
     with col1:
@@ -117,7 +116,7 @@ def clear_retest_list_page():
 
     try:
         try: # 獲取目標工作表
-            worksheet = gp.get_google_sheet_worksheet(gc_client, "補考名單", grade)
+            worksheet = gp.get_google_sheet_worksheet("補考名單", grade)
         except Exception as e:
             st.error(f"無法取得 Google Sheet 工作表 '補考名單 - {grade}'，請確認試算表名稱和工作表名稱是否正確，或服務帳戶權限。")
             st.exception(e)
@@ -185,6 +184,16 @@ def home_page():
             st.session_state['current_page'] = 'retest_seat'
             st.rerun()
 
+    col5, col6 = st.columns(2)
+    with col5:
+        if st.button("補考系統開放時間", key="nav_time_set", use_container_width=True):
+            st.session_state['current_page'] = 'time_set'
+            st.rerun()
+    with col6:
+        if st.button("更改帳號密碼", key="nav_change_password", use_container_width=True):
+            st.session_state['current_page'] = 'change_password'
+            st.rerun()
+
     st.markdown("---")
     st.header("查看雲端資料")
 
@@ -199,12 +208,12 @@ def home_page():
         st.session_state['selected_view_grade'] = st.session_state.get('view_data_grade_select')
         st.rerun() # 重新渲染以顯示新的年級資料
 
-    col5, col6 = st.columns(2)
-    with col5:
+    col7, col8 = st.columns(2)
+    with col7:
         if st.button(f"查看 {view_grade} 年級補考名單", key=f"view_retest_list_btn_{view_grade}", use_container_width=True):
             st.session_state['selected_view_type'] = 'retest_list' # 設定為查看補考名單
             st.rerun() 
-    with col6:
+    with col8:
         if st.button(f"查看 {view_grade} 年級補考者報名資料", key=f"view_registrants_data_btn_{view_grade}", use_container_width=True):
             st.session_state['selected_view_type'] = 'registrants_data' # 設定為查看報名資料
             st.rerun()
@@ -212,25 +221,18 @@ def home_page():
     if st.session_state['selected_view_type'] == 'retest_list': sheet_to_view = "補考名單"
     else: sheet_to_view = "補考者報名資料"
     display_cloud_data(st.session_state['selected_view_grade'],sheet_to_view)
-
+    
     st.markdown("---")
-    col7, col8 = st.columns(2)
-    with col7:
-        if st.button("更改帳號密碼", key="nav_change_password", use_container_width=True):
-            st.session_state['current_page'] = 'change_password'
-            st.rerun()
-    with col8:
-        if st.button("登出系統", key="logout_button", use_container_width=True):
-            st.session_state['admin_logged_in'] = False
-            st.session_state['current_page'] = 'login' # 重設頁面到登入頁
-            st.info("您已登出。")
-            time.sleep(1) # 短暫延遲讓訊息顯示
-            st.rerun()
+    if st.button("登出系統", key="logout_button"):
+        st.session_state['admin_logged_in'] = False
+        st.session_state['current_page'] = 'login' # 重設頁面到登入頁
+        st.info("您已登出。")
+        time.sleep(1) # 短暫延遲讓訊息顯示
+        st.rerun()
 
 def download_retest_registrants_data_page():
     st.title("下載補考者報名資料")
     registrants_spreadsheet_name = "補考者報名資料"
-    gc_client = gp.get_gspread_client()
 
     col1, col2 = st.columns([3, 1], gap="small")
     with col1:
@@ -244,13 +246,13 @@ def download_retest_registrants_data_page():
 
     try:
         info = st.info(f"正在從 Google Sheet 獲取 {download_grade} 年級補考者報名資料...")
-        registrants_worksheet = gp.get_google_sheet_worksheet(gc_client, registrants_spreadsheet_name, download_grade)
+        registrants_worksheet = gp.get_google_sheet_worksheet(registrants_spreadsheet_name, download_grade)
         data = registrants_worksheet.get_all_values()
         info.empty()
 
         if data:
             df_registrants = pd.DataFrame(data[1:], columns=data[0]) # 將第一行作為欄位名稱，其餘作為資料
-            st.dataframe(df_registrants)
+            st.dataframe(df_registrants, hide_index=True)
             # 提供下載按鈕
             col3, col4 = st.columns([1, 1], gap="small")
             with col3:
@@ -288,26 +290,79 @@ def download_retest_registrants_data_page():
     st.info("1. 下載的檔案會儲存在本地端的預設下載資料夾中。\n2. 檔案內的時間欄位若為井字號，請將該欄拉寬便能正常顯示。")
 
 def display_cloud_data(view_grade,sheet_name="補考名單"):
-    gc_client = gp.get_gspread_client()
-
     try:
         info = st.info(f"正在從 Google Sheet 獲取 {view_grade} 年級{sheet_name}")
-        worksheet = gp.get_google_sheet_worksheet(gc_client, sheet_name, view_grade)
+        worksheet = gp.get_google_sheet_worksheet(sheet_name, view_grade)
         data = worksheet.get_all_values()
         info.empty()
 
         if data:
             df_retest = pd.DataFrame(data[1:], columns=data[0])
-            st.dataframe(df_retest)
+            st.dataframe(df_retest, hide_index=True)
         else:
             st.warning(f"{view_grade} 年級{sheet_name}中沒有找到資料。")
     except Exception as e:
         st.error(f"查看 {view_grade} 年級{sheet_name}時發生錯誤：{e}")
         st.exception(e)
 
+def time_set():
+    st.title("補考系統開放時間設定")
+    info = st.info("預設當日為開始日期，結束日期為一週後。")
+    st.session_state['success_info'] = None
+
+    display_cloud_data("補考系統開放時間",sheet_name="補考系統資料管理")
+    start_date = st.date_input("開始日期", datetime.date.today())
+    start_time = st.time_input("開始時間", datetime.time(8, 0))
+    end_date = st.date_input("結束日期", datetime.date.today() + datetime.timedelta(days=7))  # 預設一週後
+    end_time = st.time_input("結束時間", datetime.time(17, 0))
+
+    col1, col2 = st.columns([1, 1], gap="small")
+    with col1:
+        if st.button("儲存設定", use_container_width=True):
+            start_datetime = datetime.datetime.combine(start_date, start_time)
+            end_datetime = datetime.datetime.combine(end_date, end_time)
+
+            if start_datetime <= end_datetime: 
+                st.session_state['success_info'] = True
+                sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "補考系統開放時間")
+                sheet.update_cell(2, 1, start_datetime.strftime("%Y-%m-%d %H:%M:%S"))
+                sheet.update_cell(2, 2, end_datetime.strftime("%Y-%m-%d %H:%M:%S"))
+            else: 
+                st.session_state['success_info'] = False
+    with col2:
+        if st.button("回到首頁", key="back_to_home_from_upload", use_container_width=True): 
+            st.session_state['current_page'] = 'home'
+            st.rerun()
+    
+    if st.session_state['success_info'] == True:
+        info = st.success("報名時間設定已儲存！")
+        time.sleep(1.5)
+        info.empty()
+        st.session_state['success_info'] = None
+        st.rerun()
+    elif st.session_state['success_info'] == False:
+        info = st.warning("初始時間不能大於結束時間！")
+        time.sleep(1.5)
+        info.empty()
+        st.session_state['success_info'] = None
+        st.rerun()
+
 def retest_seat():
     st.title("生成補考考生座位表")
-    gc_client = gp.get_gspread_client()
+
+    col1, col2 = st.columns([3, 1], gap="small")
+    with col1:
+        grade = st.selectbox('選擇操作年級', options=["1", "2", "3"], key='grade_input')
+    with col2:
+        st.markdown("<div style='margin-top: 28px;'>", unsafe_allow_html=True)
+        if st.button("回到首頁", key="back_to_home_from_upload", use_container_width=True): 
+            st.session_state['current_page'] = 'home'
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+    display_cloud_data(grade,sheet_name="補考者報名資料")
+
+def change_password_page():
+    st.title("更改帳號密碼")
 
     col1, col2 = st.columns([3, 1], gap="small")
     with col1:
