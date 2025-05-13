@@ -6,7 +6,6 @@ import googlesheet_process as gp
 import gspread
 import time
 import io
-from passlib.context import CryptContext
 
 def upload_retest_list_page():
     st.title("上傳補考名單")
