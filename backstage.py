@@ -23,13 +23,12 @@ def main_app():
         st.title("後台管理系統")
         st.info("請輸入管理員帳號密碼 ( 預設帳號：user；預設密碼：pass )")
         sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "登入帳密")
-        sheet_data = sheet.get_all_records()
 
         username = st.text_input("帳號", key="admin_username_input")
         password = st.text_input("密碼", type="password", key="admin_password_input")
 
         if st.button("登入", key="admin_login_button"):
-            if (username == ADMIN_USERNAME and password == ADMIN_PASSWORD) or (username == sheet_data["使用者名稱"] and password == sheet_data["密碼"]):
+            if (username == ADMIN_USERNAME and password == ADMIN_PASSWORD) or (username == sheet.cell(2, 1).value and password == sheet.cell(2, 2).value):
                 top_level_message_placeholder.success("登入成功！")
                 time.sleep(1)
                 top_level_message_placeholder.empty() # 清空訊息
