@@ -5,7 +5,6 @@ import pandas as pd
 from datetime import datetime
 import time
 import googlesheet_process as gp
-import page_function as pf
 import pytz
 
 def save_retest_records(student_common_data, selected_subjects_list): #將資料上傳googlesheet
@@ -83,13 +82,14 @@ def login_actions():
     with col_submit_back[1]: 
         st.selectbox('班級', options=["1", "2", "3","4", "5", "6","7", "8", "9","10"], key='class_name_input')
     st.number_input('座號:', min_value=1, step=1, key='seat_number_input')
-    st.button('登入', on_click=pf.login_action)
+    st.button('登入', on_click=login_action)
 
     if st.session_state['show_no_data_message']:
         st.info('查無您的補考資料，您不需要補考。')
         st.session_state['show_no_data_message'] = False # 顯示後立即重置標記，避免在下次重新運行時重複顯示
 
 def back_front_page():
+    # 清除 'selected_subjects' 狀態，確保返回首頁時選擇是空的
     st.session_state.update({'stage': 'login', 'student_info': None})
 
 def retest_form_actions():
@@ -102,7 +102,7 @@ def retest_form_actions():
         st.title('補考報名系統')
     with col_submit_back[1]:
         st.markdown("<div style='margin-top: 28px;'>", unsafe_allow_html=True) # 稍微調整垂直邊距
-        st.button('返回首頁',on_click=pf.back_front_page, key='back_button', use_container_width=True)
+        st.button('返回首頁',on_click=back_front_page, key='back_button', use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     #顯示該生補考資訊
@@ -136,8 +136,6 @@ def confirm(selected_subjects,student_data):
         student_common_data = {
             '班級': str(student_base_info['班級']),
             '座號': str(student_base_info['座號']),
-            '補考科目': '、'.join(selected_subjects),
-            '報名時間': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         save_retest_records(student_common_data, selected_subjects)
 
