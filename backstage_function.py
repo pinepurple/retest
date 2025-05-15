@@ -1,4 +1,6 @@
 #後臺處理的相關函數
+#pip install passlib
+#pip install bcrypt
 
 import streamlit as st
 import pandas as pd
@@ -7,6 +9,7 @@ import gspread
 import time
 import io
 import datetime
+from passlib.context import CryptContext
 
 def upload_retest_list_page():
     st.title("上傳補考名單")
@@ -190,7 +193,7 @@ def home_page():
             st.session_state['current_page'] = 'time_set'
             st.rerun()
     with col6:
-        if st.button("更改帳號密碼", key="nav_change_password", use_container_width=True):
+        if st.button("更改/新增帳號密碼", key="nav_change_password", use_container_width=True):
             st.session_state['current_page'] = 'change_password'
             st.rerun()
 
@@ -361,16 +364,130 @@ def retest_seat():
         st.markdown("</div>", unsafe_allow_html=True)
     display_cloud_data(grade,sheet_name="補考者報名資料")
 
-def change_password_page():
-    st.title("更改帳號密碼")
+def verify_password_page(pwd_context):
+    st.title("更改/新增帳號密碼")
+    st.info("預設帳號：user；預設密碼：pass ")
+        
+    username = st.session_state.get('admin_username_input', 'user')
+    password = st.text_input("密碼", type="password", key="verify_password_input")
 
-    col1, col2 = st.columns([3, 1], gap="small")
-    with col1:
-        grade = st.selectbox('選擇操作年級', options=["1", "2", "3"], key='grade_input')
-    with col2:
-        st.markdown("<div style='margin-top: 28px;'>", unsafe_allow_html=True)
-        if st.button("回到首頁", key="back_to_home_from_upload", use_container_width=True): 
-            st.session_state['current_page'] = 'home'
+    if st.button("驗證", key="preunverify"):
+        log_in_data = load_admin_credentials_from_sheet(username)
+
+        if (username == "user" and password == "0000") or (log_in_data and verify_password(pwd_context, password, log_in_data["password"])):
+            success = st.success("驗證成功！")
+            time.sleep(1)
+            success.empty() # 清空訊息
+            st.session_state['change_password_page'] = "verify"
             st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-    display_cloud_data(grade,sheet_name="補考者報名資料")
+        else: 
+            error = st.error("帳號或密碼錯誤，請重新驗證。")
+            time.sleep(2)
+            error.empty()
+
+    st.warning("請先驗證當前帳號密碼。")
+
+def change_password_page(pwd_context):
+    st.title("更改/新增帳號密碼")
+    st.info("預設帳號：user；預設密碼：pass ")
+    username = st.session_state.get('admin_username_input', 'user')
+    st.session_state['change_password_page'] = 'unverify'
+
+    st.header("更改密碼")
+        
+    new_password = st.text_input("輸入新密碼", type="password", key="new_password_input")
+    confirm_new_password = st.text_input("確認新密碼", type="password", key="confirm_new_password_input")
+
+    if st.button("確認更改密碼", key="change_password_submit"):
+        if not new_password or not confirm_new_password:
+            st.error("請填寫所有密碼欄位。")
+            return  # 結束函式執行
+        if new_password != confirm_new_password:
+            st.error("新密碼與確認密碼不符，請重新輸入。")
+            return
+        if len(new_password) < 8:  # 提高密碼長度要求
+            st.error("新密碼長度至少需要 8 個字元。")
+            return
+
+        # 密碼複雜度檢查
+        import re
+        if not re.search(r"[A-Z]", new_password) or not re.search(r"[0-9]", new_password) or not re.search(r"[!@#$%^&*]", new_password):
+            st.error("新密碼必須包含大寫字母、數字和特殊字元。")
+            return
+
+        try:
+            new_password_hash = hash_password(pwd_context, new_password)
+            if save_admin_password_to_sheet(username, new_password_hash):
+                st.success("密碼已成功更改！請使用新密碼重新登入。")
+                st.session_state['admin_logged_in'] = False
+                st.session_state['current_page'] = 'login'
+                time.sleep(1)
+                st.rerun()
+            else:
+                error = st.error("保存新密碼到 Google Sheet 失敗，請重試。")
+                time.sleep(2)
+                error.empty()
+        except Exception as e:
+            st.error(f"發生錯誤：{e}")
+
+    st.markdown("---")
+    st.header("新增帳號")
+
+    st.markdown("---")
+    if st.button("回到首頁", key="back_to_home_from_upload"):
+        st.session_state['current_page'] = 'home'
+        st.rerun()
+
+def hash_password(pwd_context, password: str) -> str:
+    return pwd_context.hash(password)
+
+def verify_password(pwd_context, plain_password: str, hashed_password: str) -> bool:
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except ValueError:
+        return False
+    
+def start_password(pwd_context):
+    try:
+        sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "登入帳密")
+        if sheet.cell(2, 2).value == None:
+            sheet.update_cell(2, 1, "user")
+            sheet.update_cell(2, 2, hash_password(pwd_context, "pass"))
+    except Exception as e:
+        st.error(f"讀取補考系統資料管理檔案失敗: {e}")
+
+def load_admin_credentials_from_sheet(username: str) -> dict:
+    try:
+        sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "登入帳密")
+        data = sheet.get_all_values()  # 讀取整個工作表
+        PASSWORD_HASH_COLUMN = 2
+        USERNAME_COLUMN = 1
+
+        for row in data:
+            if len(row) >= PASSWORD_HASH_COLUMN and row[USERNAME_COLUMN - 1] == username:
+                return {"username": row[USERNAME_COLUMN - 1], "password": row[PASSWORD_HASH_COLUMN - 1]}
+        error = st.error(f"找不到帳號")
+        time.sleep(2)
+        error.empty()
+        return None  # 找不到帳號
+    except Exception as e:
+        error = st.error(f"讀取補考系統資料管理檔案失敗: {e}")
+        time.sleep(2)
+        error.empty()
+        return None
+
+def save_admin_password_to_sheet(username: str, new_password_hash: str) -> bool:
+    try:
+        sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "登入帳密")
+        data = sheet.get_all_values() #返回列表
+        PASSWORD_HASH_COLUMN = 2
+        USERNAME_COLUMN = 1
+
+        for i, row in enumerate(data):
+            if len(row) >= PASSWORD_HASH_COLUMN and row[USERNAME_COLUMN - 1] == username:
+                sheet.update_cell(i + 1, PASSWORD_HASH_COLUMN, new_password_hash)  # 更新密碼雜湊值
+                return True
+        return False  # 找不到帳號
+    except Exception as e:
+        st.error(f"儲存管理員密碼失敗: {e}")
+        return False
