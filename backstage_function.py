@@ -572,6 +572,7 @@ def add_user_account(pwd_context):
             if sheet.append_row([new_username, hashed_password, hashed_password]):
                 st.success(f"帳號 '{new_username}' 新增成功！")
                 time.sleep(2)
+                st.session_state['current_page'] = 'home'
                 st.rerun()
             else:
                 st.error("新增帳號失敗，請重試。")
