@@ -1,6 +1,4 @@
 #後臺處理的相關函數
-#pip install passlib
-#pip install bcrypt
 
 import streamlit as st
 import pandas as pd
@@ -9,7 +7,6 @@ import gspread
 import time
 import io
 import datetime
-from passlib.context import CryptContext
 
 def upload_retest_list_page():
     st.title("上傳補考名單")
@@ -164,7 +161,7 @@ def clear_retest_list_page():
 
 def home_page():
     st.title("後臺管理系統：首頁")
-    st.subheader("歡迎，管理員！")
+    st.subheader(f"歡迎，管理員 {st.session_state['account']}！")
 
     st.header("管理功能")
     col1, col2 = st.columns(2)
@@ -193,7 +190,7 @@ def home_page():
             st.session_state['current_page'] = 'time_set'
             st.rerun()
     with col6:
-        if st.button("更改/新增帳號密碼", key="nav_change_password", use_container_width=True):
+        if st.button("帳號管理", key="nav_change_password", use_container_width=True):
             st.session_state['current_page'] = 'change_password'
             st.rerun()
 
@@ -294,7 +291,7 @@ def download_retest_registrants_data_page():
 
 def display_cloud_data(view_grade,sheet_name="補考名單"):
     try:
-        info = st.info(f"正在從 Google Sheet 獲取 {view_grade} 年級{sheet_name}")
+        info = st.info(f"正在從 Google Sheet 獲取 {view_grade} 工作表，來自{sheet_name}檔")
         worksheet = gp.get_google_sheet_worksheet(sheet_name, view_grade)
         data = worksheet.get_all_values()
         info.empty()
@@ -303,9 +300,9 @@ def display_cloud_data(view_grade,sheet_name="補考名單"):
             df_retest = pd.DataFrame(data[1:], columns=data[0])
             st.dataframe(df_retest, hide_index=True)
         else:
-            st.warning(f"{view_grade} 年級{sheet_name}中沒有找到資料。")
+            st.warning(f"{view_grade} 工作表中沒有找到資料。錯誤檔案：{sheet_name}")
     except Exception as e:
-        st.error(f"查看 {view_grade} 年級{sheet_name}時發生錯誤：{e}")
+        st.error(f"查看 {view_grade} 發生錯誤。錯誤檔案：{sheet_name}。錯誤訊息：{e}")
         st.exception(e)
 
 def time_set():
@@ -367,14 +364,14 @@ def retest_seat():
 def verify_password_page(pwd_context):
     st.title("更改/新增帳號密碼")
     st.info("預設帳號：user；預設密碼：pass ")
-        
-    username = st.session_state.get('admin_username_input', 'user')
+    username = st.session_state['account']
+
     password = st.text_input("密碼", type="password", key="verify_password_input")
 
     if st.button("驗證", key="preunverify"):
-        log_in_data = load_admin_credentials_from_sheet(username)
+        log_in_data = load_admin_credentials_from_sheet(st.session_state['account'])
 
-        if (username == "user" and password == "0000") or (log_in_data and verify_password(pwd_context, password, log_in_data["password"])):
+        if log_in_data and verify_password(pwd_context, username, password, log_in_data["password"]):
             success = st.success("驗證成功！")
             time.sleep(1)
             success.empty() # 清空訊息
@@ -387,14 +384,113 @@ def verify_password_page(pwd_context):
 
     st.warning("請先驗證當前帳號密碼。")
 
-def change_password_page(pwd_context):
-    st.title("更改/新增帳號密碼")
+def account_management_page(pwd_context):
+    st.title("帳號管理")
     st.info("預設帳號：user；預設密碼：pass ")
-    username = st.session_state.get('admin_username_input', 'user')
-    st.session_state['change_password_page'] = 'unverify'
+
+    display_cloud_data("登入帳密",sheet_name="補考系統資料管理")
 
     st.header("更改密碼")
+    change_password(pwd_context)
+
+    st.markdown("---")
+    st.header("新增帳號")
+    add_user_account(pwd_context)
+
+    st.markdown("---")
+    st.header("刪除帳號")
+    delete_user_account()
+
+    st.markdown("---")
+    if st.button("回到首頁", key="back_to_home_from_upload"):
+        st.session_state['current_page'] = 'home'
+        st.rerun()
+
+def hash_password(pwd_context, password: str) -> str:
+    return pwd_context.hash(password)
+
+def verify_password(pwd_context, username, plain_password: str, hashed_password: str) -> bool:
+    ADMIN_USERNAME = st.secrets.get("admin", {}).get("username", "admin_user")
+    ADMIN_PASSWORD = st.secrets.get("admin", {}).get("password", "admin_pass")
+    try:
+        if plain_password == ADMIN_PASSWORD and username == ADMIN_USERNAME: # 如果是 admin 帳號，則直接返回 True
+            return True
+        return pwd_context.verify(plain_password, hashed_password) #hashed_password：雲端的密碼
+    except ValueError:
+        return False
+    
+def start_password(pwd_context):
+    try:
+        sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "登入帳密")
+        password = hash_password(pwd_context, "pass")
+        if sheet.cell(2, 2).value == None:
+            sheet.update_cell(2, 1, "user")
+            sheet.update_cell(2, 2, password)
+            sheet.update_cell(2, 3, password)
+    except Exception as e:
+        st.error(f"讀取補考系統資料管理檔案失敗: {e}")
+
+def load_admin_credentials_from_sheet(username: str) -> dict:
+    ADMIN_USERNAME = st.secrets.get("admin", {}).get("username", "admin_user")
+    ADMIN_PASSWORD = st.secrets.get("admin", {}).get("password", "admin_pass")
+    
+    try:
+        sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "登入帳密")
+        data = sheet.get_all_values()  # 讀取整個工作表
+        PRE_PASSWORD_HASH_COLUMN = 3
+        PASSWORD_HASH_COLUMN = 2
+        USERNAME_COLUMN = 1
+
+        if username == ADMIN_USERNAME: # 如果是 admin 帳號，則直接返回預設密碼
+            return {"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD}
+        else:
+            for row in data:
+                if len(row) >= PASSWORD_HASH_COLUMN and row[USERNAME_COLUMN - 1] == username:
+                    if row[PASSWORD_HASH_COLUMN - 1] == row[PRE_PASSWORD_HASH_COLUMN - 1]:
+                        return {"username": row[USERNAME_COLUMN - 1], "password": row[PASSWORD_HASH_COLUMN - 1], "pre_password": True}
+                    else:
+                        return {"username": row[USERNAME_COLUMN - 1], "password": row[PASSWORD_HASH_COLUMN - 1], "pre_password": False}
         
+            error = st.error(f"找不到帳號")
+            time.sleep(2)
+            error.empty()
+            return None  # 找不到帳號
+    except Exception as e:
+        error = st.error(f"讀取補考系統資料管理檔案失敗: {e}")
+        time.sleep(2)
+        error.empty()
+        return None
+
+def save_admin_password_to_sheet(username: str, new_password_hash: str) -> bool:
+    ADMIN_USERNAME = st.secrets.get("admin", {}).get("username", "admin_user")
+    usernames = st.session_state['account']
+    try:
+        sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "登入帳密")
+        data = sheet.get_all_values() #返回列表
+        PASSWORD_HASH_COLUMN = 2
+        USERNAME_COLUMN = 1
+
+        for i, row in enumerate(data):
+            if len(row) >= PASSWORD_HASH_COLUMN and row[USERNAME_COLUMN - 1] == username:
+                sheet.update_cell(i + 1, PASSWORD_HASH_COLUMN, new_password_hash)  # 更新密碼雜湊值
+                if usernames != ADMIN_USERNAME:
+                    sheet.update_cell(i + 1, PASSWORD_HASH_COLUMN + 1, new_password_hash)
+                return True
+        return False  # 找不到帳號
+    except Exception as e:
+        st.error(f"儲存管理員密碼失敗: {e}")
+        return False
+    
+def change_password(pwd_context):
+    username = st.session_state['account']
+    is_ADMIN_USERNAME = False
+
+    if username == st.secrets['admin']['username']:
+        st.warning("請注意：無法更改 admin 帳號的密碼")
+        display_cloud_data("登入帳密",sheet_name="補考系統資料管理")
+        username  = st.text_input("輸入更動帳號", key="account _input")
+        is_ADMIN_USERNAME = True
+
     new_password = st.text_input("輸入新密碼", type="password", key="new_password_input")
     confirm_new_password = st.text_input("確認新密碼", type="password", key="confirm_new_password_input")
 
@@ -418,76 +514,96 @@ def change_password_page(pwd_context):
         try:
             new_password_hash = hash_password(pwd_context, new_password)
             if save_admin_password_to_sheet(username, new_password_hash):
-                st.success("密碼已成功更改！請使用新密碼重新登入。")
-                st.session_state['admin_logged_in'] = False
-                st.session_state['current_page'] = 'login'
-                time.sleep(1)
-                st.rerun()
+                if is_ADMIN_USERNAME == False:
+                    st.success("密碼已成功更改！請使用新密碼重新登入。")
+                    st.session_state['admin_logged_in'] = False
+                    st.session_state['current_page'] = 'login'
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.success(f"{username}帳號的密碼已成功更改！")
+                    time.sleep(2)
+                    st.session_state['current_page'] = 'home'
+                    st.rerun()
             else:
-                error = st.error("保存新密碼到 Google Sheet 失敗，請重試。")
+                if is_ADMIN_USERNAME == True: error = st.error("保存新密碼失敗，admin不能更改帳密。")
+                else: st.error("保存新密碼失敗，請重試。")
                 time.sleep(2)
                 error.empty()
         except Exception as e:
             st.error(f"發生錯誤：{e}")
 
-    st.markdown("---")
-    st.header("新增帳號")
+def add_user_account(pwd_context):
+    import re
 
-    st.markdown("---")
-    if st.button("回到首頁", key="back_to_home_from_upload"):
-        st.session_state['current_page'] = 'home'
-        st.rerun()
+    new_username = st.text_input("請輸入新的使用者名稱", key="add_clear_username")
+    new_password = st.text_input("請輸入新密碼", type="password", key="add_clear_password")
+    confirm_new_password = st.text_input("確認新密碼", type="password", key="add_clear_confirm_password")
 
-def hash_password(pwd_context, password: str) -> str:
-    return pwd_context.hash(password)
-
-def verify_password(pwd_context, plain_password: str, hashed_password: str) -> bool:
-    try:
-        return pwd_context.verify(plain_password, hashed_password)
-    except ValueError:
-        return False
-    
-def start_password(pwd_context):
-    try:
-        sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "登入帳密")
-        if sheet.cell(2, 2).value == None:
-            sheet.update_cell(2, 1, "user")
-            sheet.update_cell(2, 2, hash_password(pwd_context, "pass"))
-    except Exception as e:
-        st.error(f"讀取補考系統資料管理檔案失敗: {e}")
-
-def load_admin_credentials_from_sheet(username: str) -> dict:
-    try:
+    if st.button("新增帳號"):
+        if not new_username or not new_password or not confirm_new_password:
+            st.error("請填寫所有必填欄位。")
+            return
+        if new_password != confirm_new_password:
+            st.error("新密碼與確認密碼不符，請重新輸入。")
+            return
+        if len(new_password) < 8:
+            st.error("新密碼長度至少需要 8 個字元。")
+            return
+        if not re.search(r"[A-Z]", new_password) or not re.search(r"[0-9]", new_password) or not re.search(r"[!@#$%^&*]", new_password):
+            st.error("新密碼必須包含大寫字母、數字和特殊字元。")
+            return
+        
         sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "登入帳密")
         data = sheet.get_all_values()  # 讀取整個工作表
         PASSWORD_HASH_COLUMN = 2
         USERNAME_COLUMN = 1
 
-        for row in data:
-            if len(row) >= PASSWORD_HASH_COLUMN and row[USERNAME_COLUMN - 1] == username:
-                return {"username": row[USERNAME_COLUMN - 1], "password": row[PASSWORD_HASH_COLUMN - 1]}
-        error = st.error(f"找不到帳號")
-        time.sleep(2)
-        error.empty()
-        return None  # 找不到帳號
-    except Exception as e:
-        error = st.error(f"讀取補考系統資料管理檔案失敗: {e}")
-        time.sleep(2)
-        error.empty()
-        return None
+        if new_username == st.secrets['admin']['username']: # 如果是 admin 帳號，則直接返回預設密碼
+            st.error("不能使用 admin 帳號名稱，請使用其他名稱。")
+            return
+        else:
+            for row in data:
+                if len(row) >= PASSWORD_HASH_COLUMN and row[USERNAME_COLUMN - 1] == new_username:
+                    st.error(f"使用者名稱 '{new_username}' 已存在，請使用其他名稱。")
+                    return
+        try:
+            hashed_password = hash_password(pwd_context, new_password)
+            if sheet.append_row([new_username, hashed_password, hashed_password]):
+                st.success(f"帳號 '{new_username}' 新增成功！")
+                time.sleep(2)
+                st.rerun()
+            else:
+                st.error("新增帳號失敗，請重試。")
+        except Exception as e:
+            st.error(f"發生錯誤：{e}")
 
-def save_admin_password_to_sheet(username: str, new_password_hash: str) -> bool:
-    try:
-        sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "登入帳密")
-        data = sheet.get_all_values() #返回列表
-        PASSWORD_HASH_COLUMN = 2
-        USERNAME_COLUMN = 1
+def delete_user_account():
+    usernames = []
 
-        for i, row in enumerate(data):
-            if len(row) >= PASSWORD_HASH_COLUMN and row[USERNAME_COLUMN - 1] == username:
-                sheet.update_cell(i + 1, PASSWORD_HASH_COLUMN, new_password_hash)  # 更新密碼雜湊值
-                return True
-        return False  # 找不到帳號
-    except Exception as e:
-        st.error(f"儲存管理員密碼失敗: {e}")
-        return False
+    sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "登入帳密")
+    data = sheet.get_all_values()  # 讀取整個工作表
+    USERNAME_COLUMN = 1
+    
+    for row in data:
+        # 避免刪除預設帳號和當前登入的帳號及欄名稱(使用者名稱)
+        if row[USERNAME_COLUMN - 1] != "user" and row[USERNAME_COLUMN - 1] != st.session_state['account'] and row[USERNAME_COLUMN - 1] != "使用者名稱":
+            usernames.append(row[USERNAME_COLUMN - 1]) # 將所有使用者名稱加入列表
+
+    username_to_delete = st.selectbox("請選擇要刪除的帳號", usernames)
+
+    if st.button(f"確定刪除帳號 '{username_to_delete}'", icon="⚠️", key=f"confirm_delete_{username_to_delete}"):
+        try:
+            if gp.delete_user_from_sheet(username_to_delete, "補考系統資料管理", "登入帳密", 1):
+                st.success(f"帳號 '{username_to_delete}' 已成功刪除！")
+                time.sleep(2)
+                st.rerun()
+            else:
+                st.error("刪除帳號失敗，請重試。")
+        except Exception as e:
+            st.error(f"發生錯誤：{e}")
+
+    if st.session_state['account'] == st.secrets['admin']['username']:
+        st.warning(f"請注意：無法刪除 {st.secrets['admin']['username']} 、 user 帳號。")
+    else:
+        st.warning("請注意：無法刪除 user 及當前登入的帳號。")

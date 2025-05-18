@@ -1,12 +1,21 @@
 #頁面主控制區
 #相關安裝包與指令：
 #pip freeze > requirements.txt 取得需求列表
-#pip install pytz
-#pip install streamlit pandas openpyxl
-#streamlit run retest_app.py 本地執行
+#pip install pytz streamlit pandas openpyxl passlib bcrypt
+#pip install --upgrade bcrypt passlib #更新 bcrypt 與 passlib
+#streamlit run app.py 本地執行
 #部屬：https://share.streamlit.io/ 記得先將所有程式放到github上
 #本地執行時記得將金鑰放到 .streamlit/secrets.toml (用generate_secrets.py 產生)
 #部屬時記得將金鑰放到 Streamlit Cloud 的 Secrets 頁面中
+#---------------------------------------------虛擬機創建--------------------------------------------------------
+#python -m venv .venv ：創建虛擬機
+#.venv\Scripts\Activate.ps1 ：啟動虛擬機(PowerShell，記得創建完成後要重裝套件)
+#在vscode上列搜尋部分輸入">"，選取編譯器
+#deactivate ：關閉虛擬機
+#pip freeze > requirements.txt ：取得需求列表
+#pip install -r requirements.txt ：安裝需求列表
+#Get-ExecutionPolicy : 查看當前執行策略(以系統管理員身份執行PowerShell)
+#Set-ExecutionPolicy RemoteSigned : 設定執行策略(以系統管理員身份執行PowerShell)
 
 import streamlit as st
 import page_function as pf

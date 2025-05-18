@@ -38,3 +38,24 @@ def get_google_sheet_worksheet(sheet_name: str, worksheet_name: str = "1"):
     except Exception as e:
         st.error(f"無法開啟或存取 Google Sheet，請告知管理者確認Google Sheet情況：{e}")
         st.stop()
+
+#-------------------------------------------goodsheet檔案資料刪除----------------------------------------------------
+def delete_user_from_sheet(username_to_delete, sheet_name, worksheet_name, username_column_index):
+    worksheet = get_google_sheet_worksheet(sheet_name, worksheet_name)
+
+    if worksheet is None:
+        return False
+    try:
+        usernames = worksheet.col_values(username_column_index) # 讀取使用者名稱的所有資料列
+        try: # 尋找要刪除的使用者名稱所在的列
+            row_index_to_delete = usernames.index(username_to_delete) + 1  # gspread 的索引從 1 開始
+        except ValueError:
+            st.warning(f"找不到使用者名稱 '{username_to_delete}'。")
+            return False
+
+        worksheet.delete_rows(row_index_to_delete) # 刪除該列
+        return True
+
+    except Exception as e:
+        st.error(f"刪除資料時發生錯誤：{e}")
+        return False
