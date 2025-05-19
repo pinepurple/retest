@@ -23,7 +23,7 @@ def save_retest_records(student_common_data, selected_subjects_list): #將資料
         seat = str(student_common_data.get('座號', ''))
         
         taiwan_tz = pytz.timezone('Asia/Taipei') #取得台灣時區
-        now_in_taiwan = datetime.now(taiwan_tz)
+        now_in_taiwan = datetime.datetime.now(taiwan_tz)
         Time = now_in_taiwan.strftime("%Y-%m-%d %H:%M:%S")
         
         for subject in selected_subjects_list: # 對每個選定的科目進行迴圈，逐一寫入 Google Sheet
