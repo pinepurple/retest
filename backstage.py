@@ -14,10 +14,12 @@ def main_app():
         st.session_state['current_page'] = 'login' # 預設起始頁面為登入頁
     if 'change_password_page' not in st.session_state:
         st.session_state['change_password_page'] = 'unverify'
+    if 'account_management_page' not in st.session_state:
+        st.session_state['account_management_page'] = '更改密碼'
     if 'account' not in st.session_state:
         st.session_state['account'] = st.secrets.get("admin", {}).get("username", "admin_user") # 預設帳號為 admin_user
+    
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
     top_level_message_placeholder = st.empty() # 創建一個用於頂部訊息 (如登入成功) 的佔位符
 
     if not st.session_state['admin_logged_in']:

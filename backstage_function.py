@@ -389,22 +389,35 @@ def account_management_page(pwd_context):
     st.info("預設帳號：user；預設密碼：pass ")
 
     display_cloud_data("登入帳密",sheet_name="補考系統資料管理")
+    account_management_list = ["更改密碼", "新增帳號", "刪除帳號"]
 
-    st.header("更改密碼")
-    change_password(pwd_context)
+    col1, col2 = st.columns([3, 1], gap="small")
+    with col1:
+        account_management_state = st.selectbox('帳號密碼管理功能', options = account_management_list, index=0)
+    with col2:
+        st.markdown("<div style='margin-top: 28px;'>", unsafe_allow_html=True)
+        if st.button("回到首頁", key="back_to_home_from_upload", use_container_width=True): 
+            st.session_state['current_page'] = 'home'
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.header("新增帳號")
-    add_user_account(pwd_context)
+    if account_management_state != st.session_state['account_management_page']:
+        if account_management_state == "更改密碼":
+            st.session_state['account_management_page'] = "更改密碼"
+            st.rerun()
+        elif account_management_state == "新增帳號":
+            st.session_state['account_management_page'] = "新增帳號"
+            st.rerun()
+        elif account_management_state == "刪除帳號":
+            st.session_state['account_management_page'] = "刪除帳號"
+            st.rerun()
 
-    st.markdown("---")
-    st.header("刪除帳號")
-    delete_user_account()
-
-    st.markdown("---")
-    if st.button("回到首頁", key="back_to_home_from_upload"):
-        st.session_state['current_page'] = 'home'
-        st.rerun()
+    if st.session_state['account_management_page'] == "更改密碼":
+        change_password(pwd_context)
+    elif st.session_state['account_management_page'] == "新增帳號":
+        add_user_account(pwd_context)
+    elif st.session_state['account_management_page'] == "刪除帳號":
+        delete_user_account()
 
 def hash_password(pwd_context, password: str) -> str:
     return pwd_context.hash(password)
@@ -482,6 +495,8 @@ def save_admin_password_to_sheet(username: str, new_password_hash: str) -> bool:
         return False
     
 def change_password(pwd_context):
+    st.header("更改密碼")
+    
     username = st.session_state['account']
     is_ADMIN_USERNAME = False
 
@@ -536,6 +551,8 @@ def change_password(pwd_context):
 def add_user_account(pwd_context):
     import re
 
+    st.header("新增帳號")
+
     new_username = st.text_input("請輸入新的使用者名稱", key="add_clear_username")
     new_password = st.text_input("請輸入新密碼", type="password", key="add_clear_password")
     confirm_new_password = st.text_input("確認新密碼", type="password", key="add_clear_confirm_password")
@@ -581,6 +598,8 @@ def add_user_account(pwd_context):
 
 def delete_user_account():
     usernames = []
+
+    st.header("刪除帳號")
 
     sheet = gp.get_google_sheet_worksheet("補考系統資料管理", "登入帳密")
     data = sheet.get_all_values()  # 讀取整個工作表
