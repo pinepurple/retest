@@ -34,12 +34,12 @@ if 'show_no_data_message' not in st.session_state:
 if  st.session_state['stage'] == 'login':
     registration_status = pf.check_registration_status()
 
-    if registration_status == "開放報名":
+    if registration_status[0] == "開放報名":
         pf.login_actions() #登入頁面
-    elif registration_status == "尚未開放":
-        st.warning("補考報名尚未開放，請稍後再試。")
-    elif registration_status == "已結束":
-        st.warning("補考報名已結束。")
+    elif registration_status[0] == "尚未開放":
+        st.warning("補考報名將在 " + str(registration_status[1]) + " 開始。")
+    elif registration_status[0] == "已結束":
+        st.warning("補考報名已在 "+ str(registration_status[2]) + " 結束。")
     else:
         st.info("補考報名時間設定未完成，請聯繫管理員。")
 

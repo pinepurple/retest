@@ -40,15 +40,22 @@ def main_app():
                 time.sleep(1)
                 top_level_message_placeholder.empty() # 清空訊息
                 st.session_state['admin_logged_in'] = True
-                st.session_state['current_page'] = 'home' # 登入成功後設定為首頁
-                st.rerun()
+                
+                if password == "pass" and username == "user": # 如果使用者使用預設密碼登入
+                    st.session_state['current_page'] = 'first_change_password'
+                    st.rerun()
+                else:
+                    st.session_state['current_page'] = 'home' # 登入成功後設定為首頁                
+                    st.rerun()
             elif log_in_data:
                 error = st.error("帳號或密碼錯誤，請重新輸入。")
                 time.sleep(2)
                 error.empty()
+
         if username != st.secrets['admin']['username'] and log_in_data and log_in_data["pre_password"] == False:
             st.warning(f"帳號{username}的密碼已經透過{st.secrets['admin']['username']}帳號重新設定")
-    else:
+
+    elif st.session_state['current_page'] != 'first_change_password':
         st.sidebar.title("功能選單")
         st.sidebar.write(f"當前使用者：{st.session_state['account']}")
         if st.sidebar.button("首頁", key="sidebar_home"):
@@ -80,32 +87,34 @@ def main_app():
             top_level_message_placeholder.empty()
             st.rerun()
 
-        previous_page = st.session_state.get('previous_page', None)
-        current_page = st.session_state['current_page']
+    previous_page = st.session_state.get('previous_page', None)
+    current_page = st.session_state['current_page']
 
-        if previous_page == 'change_password' and current_page != 'change_password':
-            st.session_state['change_password_page'] = 'unverify'
+    if previous_page == 'change_password' and current_page != 'change_password':
+        st.session_state['change_password_page'] = 'unverify'
 
-        st.session_state['previous_page'] = current_page
+    st.session_state['previous_page'] = current_page
 
-        # 根據 session state 顯示當前頁面
-        if st.session_state['current_page'] == 'home':
-            bf.home_page()
-        elif st.session_state['current_page'] == 'upload_retest_list':
-            bf.upload_retest_list_page()
-        elif st.session_state['current_page'] == 'download_registrants_data':
-            bf.download_retest_registrants_data_page()
-        elif st.session_state['current_page'] == 'sidebar_claen_registrants':
-            bf.clear_retest_list_page()
-        elif st.session_state['current_page'] == 'retest_seat':
-            bf.retest_seat()
-        elif st.session_state['current_page'] == 'time_set':
-            bf.time_set()
-        elif st.session_state['current_page'] == 'change_password':
-            if st.session_state['change_password_page'] == 'unverify':
-                bf.verify_password_page(pwd_context)
-            elif st.session_state['change_password_page'] == 'verify':
-                bf.account_management_page(pwd_context)
+    # 根據 session state 顯示當前頁面
+    if st.session_state['current_page'] == 'home':
+        bf.home_page()
+    elif st.session_state['current_page'] == 'first_change_password':
+        bf.first_change_password(pwd_context)
+    elif st.session_state['current_page'] == 'upload_retest_list':
+        bf.upload_retest_list_page()
+    elif st.session_state['current_page'] == 'download_registrants_data':
+        bf.download_retest_registrants_data_page()
+    elif st.session_state['current_page'] == 'sidebar_claen_registrants':
+        bf.clear_retest_list_page()
+    elif st.session_state['current_page'] == 'retest_seat':
+        bf.retest_seat()
+    elif st.session_state['current_page'] == 'time_set':
+        bf.time_set()
+    elif st.session_state['current_page'] == 'change_password':
+        if st.session_state['change_password_page'] == 'unverify':
+            bf.verify_password_page(pwd_context)
+        elif st.session_state['change_password_page'] == 'verify':
+            bf.account_management_page(pwd_context)
 
 if __name__ == '__main__':
     main_app()

@@ -627,3 +627,7 @@ def delete_user_account():
         st.warning(f"請注意：無法刪除 {st.secrets['admin']['username']} 、 user 帳號。")
     else:
         st.warning("請注意：無法刪除 user 及當前登入的帳號。")
+
+def first_change_password(pwd_context):
+    change_password(pwd_context)
+    st.info("您使用預設密碼登入，請更改您的密碼。")

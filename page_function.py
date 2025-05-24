@@ -148,13 +148,21 @@ def check_registration_status():
     start_time_str = sheet.cell(2, 1).value
     end_time_str = sheet.cell(2, 2).value
 
+    # 將字串解析為 naive datetime 物件
     start_time = datetime.datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S")
     end_time = datetime.datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S")
-    now = datetime.datetime.now()
 
-    if start_time <= now <= end_time:
-        return "開放報名"
-    elif now < start_time:
-        return "尚未開放"
+    taiwan_tz = pytz.timezone('Asia/Taipei') #取得台灣時區
+    now_in_taiwan = datetime.datetime.now(taiwan_tz)
+
+    # 將 naive datetime 物件轉換為帶有時區的 aware datetime 物件(確保比較時考慮到時區)
+    # naive datetime 物件不包含時區資訊，而 aware datetime 物件則包含時區資訊，兩者不能比較。
+    start_time_aware = taiwan_tz.localize(start_time)
+    end_time_aware = taiwan_tz.localize(end_time)
+
+    if start_time_aware <= now_in_taiwan <= end_time_aware:
+        return ["開放報名", start_time, end_time]
+    elif now_in_taiwan < start_time_aware:
+        return ["尚未開放", start_time, end_time]
     else:
-        return "已結束"
+        return ["已結束", start_time, end_time]
