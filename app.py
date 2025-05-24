@@ -29,6 +29,8 @@ if 'selected_subjects' not in st.session_state: #初始化 selected_subjects 狀
     st.session_state['selected_subjects'] = []
 if 'show_no_data_message' not in st.session_state:
     st.session_state['show_no_data_message'] = False
+if 'name' not in st.session_state:
+    st.session_state['name'] = ""
 
 #---------------------------------------------session_state頁面作動---------------------------------------------
 if  st.session_state['stage'] == 'login':

@@ -101,63 +101,69 @@ def upload_retest_list_page():
     display_cloud_data(grade,sheet_name="補考名單")
 
 def clear_retest_list_page():
-    st.title("清空補考名單")
+    st.title("清空表單資料")
 
     col1, col2 = st.columns([3, 1], gap="small")
     with col1:
-        st.selectbox('選擇操作年級', options=["1", "2", "3"], key='grade_input', index=0)
+        grade = st.selectbox('選擇操作年級', options=["1", "2", "3"], index=0)
     with col2:
         st.markdown("<div style='margin-top: 28px;'>", unsafe_allow_html=True)
         if st.button("回到首頁", key="back_to_home_from_upload", use_container_width=True): 
             st.session_state['current_page'] = 'home'
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
-    grade = st.session_state.get("grade_input")
 
-    try:
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(f"查看 {grade} 年級補考名單", key=f"view_retest_list_btn_{grade}", use_container_width=True):
+            st.session_state['selected_view_type'] = 'retest_list' # 設定為查看補考名單
+            st.rerun() 
+    with col2:
+        if st.button(f"查看 {grade} 年級補考者報名資料", key=f"view_registrants_data_btn_{grade}", use_container_width=True):
+            st.session_state['selected_view_type'] = 'registrants_data' # 設定為查看報名資料
+            st.rerun()
+
+    if st.session_state['selected_view_type'] == 'retest_list': sheet_to_view = "補考名單"
+    else: sheet_to_view = "補考者報名資料"
+    display_cloud_data(grade,sheet_to_view)
+
+    if st.button(f"確認清空 {grade} 年級 {sheet_to_view} 表單資料", key=f"clear_btn_{grade}"):
         try: # 獲取目標工作表
-            worksheet = gp.get_google_sheet_worksheet("補考名單", grade)
+            worksheet = gp.get_google_sheet_worksheet(sheet_to_view, grade)
+        
         except Exception as e:
-            st.error(f"無法取得 Google Sheet 工作表 '補考名單 - {grade}'，請確認試算表名稱和工作表名稱是否正確，或服務帳戶權限。")
+            st.error(f"無法取得 Google Sheet 工作表 '{sheet_to_view} - {grade}'，請確認試算表名稱和工作表名稱是否正確，或服務帳戶權限。")
             st.exception(e)
             return False
 
-        if st.button(f"確認清空 {grade} 年級補考名單", key=f"clear_btn_{grade}"):
-            try:
-                all_data = worksheet.get_all_values() # 獲取所有資料，包括標題列，以判斷範圍                
-                if not all_data or len(all_data) <= 1: # 如果工作表為空或只有標題列，則無需清空
-                    st.info(f"{grade} 年級補考名單目前沒有資料需要清空 (只有標題或為空)。")
-                    return True
+        try:
+            all_data = worksheet.get_all_values() # 獲取所有資料，包括標題列，以判斷範圍                
+            if not all_data or len(all_data) <= 1: # 如果工作表為空或只有標題列，則無需清空
+                st.info(f"{grade} 年級補考名單目前沒有資料需要清空 (只有標題或為空)。")
+                return True
 
-                header_row = all_data[0]
-                num_cols = len(header_row) # 根據標題列的長度來決定要清空的欄位數
-                last_row_with_data = len(all_data) # 確定實際有資料的最後一行 (包含標題)                
-                start_cell_a1 = gspread.utils.rowcol_to_a1(2, 1) # 定義要清空的範圍(A2)
-                end_cell_a1 = gspread.utils.rowcol_to_a1(last_row_with_data, num_cols)
-                range_to_clear = f"{start_cell_a1}:{end_cell_a1}"
-                rows_to_clear_count = last_row_with_data - 1 # 建立一個空的二維列表來填充該範圍
-                empty_data_to_fill = [[''] * num_cols for _ in range(rows_to_clear_count)]
-                worksheet.update(values=empty_data_to_fill, range_name=range_to_clear)
-                st.success(f"{grade} 年級補考名單中的資料已成功清空。")
-                time.sleep(2)
-                st.rerun()
+            header_row = all_data[0]
+            num_cols = len(header_row) # 根據標題列的長度來決定要清空的欄位數
+            last_row_with_data = len(all_data) # 確定實際有資料的最後一行 (包含標題)
+            start_cell_a1 = gspread.utils.rowcol_to_a1(2, 1) # 定義要清空的範圍(A2)
+            end_cell_a1 = gspread.utils.rowcol_to_a1(last_row_with_data, num_cols)
+            range_to_clear = f"{start_cell_a1}:{end_cell_a1}"
+            rows_to_clear_count = last_row_with_data - 1 # 建立一個空的二維列表來填充該範圍
+            empty_data_to_fill = [[''] * num_cols for _ in range(rows_to_clear_count)]
+            worksheet.update(values=empty_data_to_fill, range_name=range_to_clear)
+            st.success(f"{grade} 年級補考名單中的資料已成功清空。")
+            time.sleep(2)
+            st.rerun()
 
-            except gspread.exceptions.APIError as e:
-                st.error(f"清空 Google Sheet 時發生 API 錯誤：{e}。請檢查服務帳戶權限。")
-                st.exception(e)
-                return False
+        except gspread.exceptions.APIError as e:
+            st.error(f"清空 Google Sheet 時發生 API 錯誤：{e}。請檢查服務帳戶權限。")
+            st.exception(e)
+            return False
 
-            except Exception as e:
-                st.error(f"清空 Google Sheet 時發生未預期的錯誤：{e}。")
-                st.exception(e)
-                return False
-    except Exception as e:
-        st.error(f"清空補考名單時發生錯誤：{e}")
-        st.exception(e)
-        return False
-    display_cloud_data(grade,sheet_name="補考名單")
-
-    return False # 按鈕未被點擊時返回 False
+        except Exception as e:
+            st.error(f"清空 Google Sheet 時發生未預期的錯誤：{e}。")
+            st.exception(e)
+            return False
 
 def home_page():
     st.title("後臺管理系統：首頁")
@@ -176,7 +182,7 @@ def home_page():
     
     col3, col4 = st.columns(2)
     with col3:
-        if st.button("清空補考名單", key="nav_claen_registrants", use_container_width=True):
+        if st.button("清空表單資料", key="nav_claen_registrants", use_container_width=True):
             st.session_state['current_page'] = 'sidebar_claen_registrants'
             st.rerun()
     with col4:
@@ -196,12 +202,6 @@ def home_page():
 
     st.markdown("---")
     st.header("查看雲端資料")
-
-    # 選擇查看資料的年級
-    if 'selected_view_type' not in st.session_state:
-        st.session_state['selected_view_type'] = 'retest_list' # 預設顯示補考名單
-    if 'selected_view_grade' not in st.session_state:
-        st.session_state['selected_view_grade'] = "1"
 
     view_grade = st.selectbox('選擇查看年級', options=["1", "2", "3"], key='view_data_grade_select', index=0)
     if st.session_state.get('view_data_grade_select') != st.session_state['selected_view_grade']: # 如果 selectbox 的值改變了，更新 session state 並觸發重新渲染

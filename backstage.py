@@ -18,6 +18,10 @@ def main_app():
         st.session_state['account_management_page'] = '更改密碼'
     if 'account' not in st.session_state:
         st.session_state['account'] = st.secrets.get("admin", {}).get("username", "admin_user") # 預設帳號為 admin_user
+    if 'selected_view_type' not in st.session_state:
+        st.session_state['selected_view_type'] = 'retest_list' # 預設顯示補考名單
+    if 'selected_view_grade' not in st.session_state:
+        st.session_state['selected_view_grade'] = "1"
     
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     bf.start_password(pwd_context)
@@ -66,7 +70,7 @@ def main_app():
         if st.sidebar.button("下載補考者報名資料", key="sidebar_download_registrants"):
             st.session_state['current_page'] = 'download_registrants_data'
             st.rerun()
-        if st.sidebar.button("清空補考名單", key="sidebar_claen_registrants"):
+        if st.sidebar.button("清空表單資料", key="sidebar_claen_registrants"):
             st.session_state['current_page'] = 'sidebar_claen_registrants'
             st.rerun()
         if st.sidebar.button("生成補考考生座位表", key="sidebar_retest_seat"):
