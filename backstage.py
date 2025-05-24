@@ -20,6 +20,7 @@ def main_app():
         st.session_state['account'] = st.secrets.get("admin", {}).get("username", "admin_user") # 預設帳號為 admin_user
     
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    bf.start_password(pwd_context)
     top_level_message_placeholder = st.empty() # 創建一個用於頂部訊息 (如登入成功) 的佔位符
 
     if not st.session_state['admin_logged_in']:
@@ -30,8 +31,6 @@ def main_app():
         username = st.text_input("帳號", key="admin_username_input", value = "user")
         password = st.text_input("密碼", type="password", key="admin_password_input", value = "pass")
         log_in_data = bf.load_admin_credentials_from_sheet(username)
-        
-        bf.start_password(pwd_context)
 
         if st.button("登入", key="admin_login_button"):
             if log_in_data and bf.verify_password(pwd_context, username, password, log_in_data["password"]):
