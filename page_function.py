@@ -30,16 +30,10 @@ def save_retest_records(student_common_data, selected_subjects_list): #將資料
         for subject in selected_subjects_list: # 對每個選定的科目進行迴圈，逐一寫入 Google Sheet
             row_data = [Class, seat, subject, Time, name] # 構建要寫入的行資料
             data_from_retest_list.append_row(row_data) # 將資料以列表形式添加到工作表末尾
-
-        success_container = st.empty()
-        success_container.success('已報名成功！')
-        time.sleep(2)  # 顯示 2 秒
-        st.session_state['stage'] = 'success'
-        st.session_state['student_info'] = None
-        st.session_state.pop('target_registration_sheet', None) #報名成功後清除緩存的工作表，讓下次登入重新載入
-        st.rerun()
+        return True
     except Exception as e:
         st.error(f"儲存報名資料時發生錯誤：{e}")
+        return False
 
 def login_action(): #登入頁面
     class_name = st.session_state.get('class_name_input') #班級
@@ -116,7 +110,7 @@ def retest_form_actions():
         st.markdown("</div>", unsafe_allow_html=True)
 
     #顯示該生補考資訊
-    display_columns = ["班級", "座號", "姓名", "科目", "必選修", "成績"]
+    display_columns = ["班級", "座號", "科目", "必選修", "成績"]
     actual_display_columns = [col for col in display_columns if col in student_data.columns] # 過濾出 DataFrame 中實際存在的列，以避免 KeyError
     st.dataframe(student_data[actual_display_columns], hide_index=True, use_container_width=True) # hide_index=True 可以隱藏 DataFrame 左側的數字索引
 
@@ -148,7 +142,13 @@ def confirm(selected_subjects,student_data):
             '座號': str(student_base_info['座號']),
             '姓名': st.session_state['name']
         }
-        save_retest_records(student_common_data, selected_subjects)
+        if save_retest_records(student_common_data, selected_subjects):
+            st.success('已報名成功！')
+            time.sleep(2)  # 顯示 2 秒
+            st.session_state['stage'] = 'success'
+            st.session_state['student_info'] = None
+            st.session_state.pop('target_registration_sheet', None)
+            st.rerun()
 
 def success_actions():
     st.title('報名成功')

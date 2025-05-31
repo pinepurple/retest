@@ -73,8 +73,14 @@ def main_app():
         if st.sidebar.button("清空表單資料", key="sidebar_claen_registrants"):
             st.session_state['current_page'] = 'sidebar_claen_registrants'
             st.rerun()
-        if st.sidebar.button("生成補考考生座位表", key="sidebar_retest_seat"):
+        if st.sidebar.button("手動新增補考學生", key="sidebar_add_retester"):
+            st.session_state['current_page'] = 'add_retester'
+            st.rerun()
+        if st.sidebar.button("生成考生座位表", key="sidebar_retest_seat"):
             st.session_state['current_page'] = 'retest_seat'
+            st.rerun()
+        if st.sidebar.button("年度資料管理", key="sidebar_year_data_manage"):
+            st.session_state['current_page'] = 'year_data_manage'
             st.rerun()
         if st.sidebar.button("補考系統開放時間", key="sidebar_time_set"):
             st.session_state['current_page'] = 'time_set'
@@ -109,6 +115,10 @@ def main_app():
         bf.download_retest_registrants_data_page()
     elif st.session_state['current_page'] == 'sidebar_claen_registrants':
         bf.clear_retest_list_page()
+    elif st.session_state['current_page'] == 'add_retester':
+        bf.add_retester()
+    elif st.session_state['current_page'] == 'year_data_manage':
+        bf.year_data_manage()
     elif st.session_state['current_page'] == 'retest_seat':
         bf.retest_seat()
     elif st.session_state['current_page'] == 'time_set':

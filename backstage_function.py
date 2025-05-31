@@ -7,6 +7,7 @@ import gspread
 import time
 import io
 import datetime
+import page_function as pf
 
 def upload_retest_list_page():
     st.title("上傳補考名單")
@@ -166,7 +167,7 @@ def clear_retest_list_page():
             return False
 
 def home_page():
-    st.title("後臺管理系統：首頁")
+    st.title("補考資料管理系統：首頁")
     st.subheader(f"歡迎，管理員 {st.session_state['account']}！")
 
     st.header("管理功能")
@@ -186,7 +187,7 @@ def home_page():
             st.session_state['current_page'] = 'sidebar_claen_registrants'
             st.rerun()
     with col4:
-        if st.button("生成補考考生座位表", key="nav_retest_seat", use_container_width=True):
+        if st.button("生成考生座位表", key="nav_retest_seat", use_container_width=True):
             st.session_state['current_page'] = 'retest_seat'
             st.rerun()
 
@@ -196,6 +197,16 @@ def home_page():
             st.session_state['current_page'] = 'time_set'
             st.rerun()
     with col6:
+        if st.button("手動新增補考學生", key="nav_add_retester", use_container_width=True):
+            st.session_state['current_page'] = 'add_retester'
+            st.rerun()
+
+    col7, col8 = st.columns(2)
+    with col7:
+        if st.button("年度資料管理", key="nav_year_data_manage", use_container_width=True):
+            st.session_state['current_page'] = 'year_data_manage'
+            st.rerun()
+    with col8:
         if st.button("帳號管理", key="nav_change_password", use_container_width=True):
             st.session_state['current_page'] = 'change_password'
             st.rerun()
@@ -208,12 +219,12 @@ def home_page():
         st.session_state['selected_view_grade'] = st.session_state.get('view_data_grade_select')
         st.rerun() # 重新渲染以顯示新的年級資料
 
-    col7, col8 = st.columns(2)
-    with col7:
+    col9, col10 = st.columns(2)
+    with col9:
         if st.button(f"查看 {view_grade} 年級補考名單", key=f"view_retest_list_btn_{view_grade}", use_container_width=True):
             st.session_state['selected_view_type'] = 'retest_list' # 設定為查看補考名單
             st.rerun() 
-    with col8:
+    with col10:
         if st.button(f"查看 {view_grade} 年級補考者報名資料", key=f"view_registrants_data_btn_{view_grade}", use_container_width=True):
             st.session_state['selected_view_type'] = 'registrants_data' # 設定為查看報名資料
             st.rerun()
@@ -223,7 +234,7 @@ def home_page():
     display_cloud_data(st.session_state['selected_view_grade'],sheet_to_view)
     
     st.markdown("---")
-    if st.button("登出系統", key="logout_button"):
+    if st.button("登出", key="logout_button"):
         st.session_state['admin_logged_in'] = False
         st.session_state['current_page'] = 'login' # 重設頁面到登入頁
         st.info("您已登出。")
@@ -348,7 +359,7 @@ def time_set():
         st.rerun()
 
 def retest_seat():
-    st.title("生成補考考生座位表")
+    st.title("生成考生座位表")
 
     col1, col2 = st.columns([3, 1], gap="small")
     with col1:
@@ -360,6 +371,134 @@ def retest_seat():
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
     display_cloud_data(grade,sheet_name="補考者報名資料")
+
+def year_data_manage():
+    st.title("年度資料管理")
+
+    col1, col2 = st.columns([3, 1], gap="small")
+    with col1:
+        grade = st.selectbox('選擇操作年級', options=["1", "2", "3"], key='grade_input')
+    with col2:
+        st.markdown("<div style='margin-top: 28px;'>", unsafe_allow_html=True)
+        if st.button("回到首頁", key="back_to_home_from_upload", use_container_width=True): 
+            st.session_state['current_page'] = 'home'
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+    display_cloud_data(grade,sheet_name="補考者報名資料")
+
+def add_retester():
+    if 'student_info' not in st.session_state: st.session_state['student_info'] = None
+    if 'grade_input_add_retester_value' not in st.session_state: st.session_state['grade_input_add_retester_value'] = "1"
+    if 'class_name_input_add_retester_value' not in st.session_state: st.session_state['class_name_input_add_retester_value'] = "1"
+    if 'name_input_value' not in st.session_state: st.session_state['name_input_value'] = ""
+    if 'seat_number_input_value' not in st.session_state: st.session_state['seat_number_input_value'] = 1
+
+    col1, col2 = st.columns([3, 1], gap="small")
+    with col1:
+         st.title("手動新增補考學生")
+    with col2:
+        st.markdown("<div style='margin-top: 28px;'>", unsafe_allow_html=True) # 稍微調整垂直邊距
+        if st.button("回到首頁", key="back_to_home_from_upload", use_container_width=True):
+            st.session_state['grade_input_add_retester_value'] = "1"
+            st.session_state['class_name_input_add_retester_value'] = "1"
+            st.session_state['name_input_value'] = ""
+            st.session_state['seat_number_input_value'] = 1
+            st.session_state['current_page'] = 'home'
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    col_submit_back = st.columns([1, 1], gap="small")
+    with col_submit_back[0]:
+        grade_input_list = ["1", "2", "3"]
+        st.selectbox('年級',
+            options=grade_input_list,
+            key='grade_input_add_retester',
+            index=grade_input_list.index(st.session_state['grade_input_add_retester_value'])
+        )
+        st.session_state['grade_input_add_retester_value'] = st.session_state['grade_input_add_retester']
+    with col_submit_back[1]:
+        class_name_input_input_list = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+        st.selectbox('班級',
+            options=class_name_input_input_list,
+            key='class_name_input_add_retester',
+            index=class_name_input_input_list.index(st.session_state['class_name_input_add_retester_value'])
+        )
+        st.session_state['class_name_input_add_retester_value'] = st.session_state['class_name_input_add_retester']
+
+    st.text_input('姓名', key='name_input', value=st.session_state['name_input_value'])
+    st.session_state['name_input_value'] = st.session_state['name_input']
+    name = st.session_state['name_input_value']
+
+    st.number_input('座號', min_value=1, step=1, key='seat_number_input', value=st.session_state['seat_number_input_value'])
+    st.session_state['seat_number_input_value'] = st.session_state['seat_number_input']
+    seat_number = st.session_state['seat_number_input_value']
+
+    grade = st.session_state['grade_input_add_retester_value']
+    class_name = st.session_state['class_name_input_add_retester_value']
+
+    retest_data = gp.get_google_sheet_worksheet("補考名單", grade).get_all_records() #儲存補考者名單的檔案
+    data_from_retest_list = gp.get_google_sheet_worksheet("補考者報名資料", grade) #儲存補考者報名資料的檔案
+    st.session_state['data_from_retest_list'] = data_from_retest_list
+
+    if len(class_name) != 2: grade_class_name = grade + "0" + class_name
+    else: grade_class_name = grade + class_name
+
+    if not retest_data: retest_df = pd.DataFrame(columns=["班級","座號","科目","必選修","成績"]) #空表則建立空表單
+    else: retest_df = pd.DataFrame(retest_data)
+
+    try:
+        student_info_df = retest_df[
+            (retest_df['班級'] == int(grade_class_name)) &
+            (retest_df['座號'] == int(seat_number))
+        ]
+        #顯示該生補考資訊
+        display_columns = ["班級", "座號", "科目", "必選修", "成績"]
+        actual_display_columns = [col for col in display_columns if col in student_info_df.columns] # 過濾出 DataFrame 中實際存在的列，以避免 KeyError
+        st.dataframe(student_info_df[actual_display_columns], hide_index=True, use_container_width=True) # hide_index=True 可以隱藏 DataFrame 左側的數字索引
+
+    except Exception as e:
+        st.error(f"查詢學生資料時發生錯誤：{e}")
+    
+    subjects = student_info_df['科目'].tolist()
+    subjects_with_all = subjects
+
+    col1, col2 = st.columns([3, 1], gap="small")
+    with col1:
+        selected_subjects = st.multiselect(
+            '請選擇要報名的補考科目:',
+            subjects_with_all,
+            key='selected_subjects', # 使用 key 將選擇綁定到 session_state
+        )
+    with col2:
+        def select_all_callback():
+            # 當「全選」按鈕被點擊時，直接將所有科目設置到 `selected_subjects` 的 session_state 中
+            st.session_state['selected_subjects'] = subjects_with_all
+        st.markdown("<div style='margin-top: 28px;'>", unsafe_allow_html=True) # 稍微調整垂直邊距
+        st.button('全選補考科目', use_container_width=True, key='select_all_button', on_click=select_all_callback)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    if st.button('確認報名'):
+        if student_info_df.empty:
+            st.info('查無學生補考資料，該生可能不需補考。')
+        elif not name:
+            st.error("請填寫姓名欄位。")
+        elif not selected_subjects:
+            st.warning('請選擇至少一個要補考的科目。')
+        else:
+            student_base_info = student_info_df.iloc[0]
+            student_common_data = {
+                '班級': str(student_base_info['班級']),
+                '座號': str(student_base_info['座號']),
+                '姓名': name
+            }
+            if pf.save_retest_records(student_common_data, selected_subjects):
+                st.success("已報名成功！")
+                time.sleep(1.5)
+                st.session_state['grade_input_add_retester_value'] = "1"
+                st.session_state['class_name_input_add_retester_value'] = "1"
+                st.session_state['name_input_value'] = ""
+                st.session_state['seat_number_input_value'] = 1
+                st.rerun()
 
 def verify_password_page(pwd_context):
     st.title("更改/新增帳號密碼")

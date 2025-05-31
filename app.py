@@ -7,6 +7,7 @@
 #部屬：https://share.streamlit.io/ 記得先將所有程式放到github上
 #本地執行時記得將金鑰放到 .streamlit/secrets.toml (用generate_secrets.py 產生)
 #部屬時記得將金鑰放到 Streamlit Cloud 的 Secrets 頁面中
+#在vscode中選擇解譯器：上方搜尋中輸入 > Python: Select Interpreter
 #---------------------------------------------虛擬機創建--------------------------------------------------------
 #python -m venv .venv ：創建虛擬機
 #.venv\Scripts\Activate.ps1 ：啟動虛擬機(PowerShell，記得創建完成後要重裝套件)
