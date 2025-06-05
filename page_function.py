@@ -6,6 +6,7 @@ import datetime
 import time
 import googlesheet_process as gp
 import pytz
+import gspread
 
 def save_retest_records(student_common_data, selected_subjects_list): #將資料上傳googlesheet
     # 從 session_state 中獲取用於儲存報名資料的 Worksheet 物件
@@ -17,7 +18,7 @@ def save_retest_records(student_common_data, selected_subjects_list): #將資料
         st.session_state['stage'] = 'login' # 強制返回登入頁面
         st.rerun() # 重新運行以更新介面
         return # 退出函式，避免後續錯誤
-    
+
     try:
         Class = str(student_common_data.get('班級', ''))
         seat = str(student_common_data.get('座號', ''))
@@ -30,6 +31,19 @@ def save_retest_records(student_common_data, selected_subjects_list): #將資料
         for subject in selected_subjects_list: # 對每個選定的科目進行迴圈，逐一寫入 Google Sheet
             row_data = [Class, seat, subject, Time, name] # 構建要寫入的行資料
             data_from_retest_list.append_row(row_data) # 將資料以列表形式添加到工作表末尾
+            
+            # 寫入特定科目工作表
+            try:
+                subject_worksheet = data_from_retest_list.worksheet(subject)
+            except gspread.exceptions.WorksheetNotFound:
+                subject_worksheet = data_from_retest_list.add_worksheet(title=subject)
+                subject_worksheet.append_row(["班級", "座號", "姓名", "報名時間"]) # 添加標頭
+                subject_row_data = [Class, seat, name, Time] 
+                subject_worksheet.append_row(subject_row_data)
+            except Exception as e_subject:
+                st.warning(f"報名失敗：保存科目 {subject} 的報名記錄時發生錯誤：{e_subject}")
+                return False
+
         return True
     except Exception as e:
         st.error(f"儲存報名資料時發生錯誤：{e}")

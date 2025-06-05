@@ -370,7 +370,148 @@ def retest_seat():
             st.session_state['current_page'] = 'home'
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
-    display_cloud_data(grade,sheet_name="補考者報名資料")
+
+    # --- 教室佈局模式選擇 ---
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("教室佈局：6x6", use_container_width=True, key="layout_6x6"):
+            st.session_state['classroom_layout'] = '6x6'
+            st.rerun()
+    with col2:
+        if st.button("教室佈局：6x5", use_container_width=True, key="layout_6x5"):
+            st.session_state['classroom_layout'] = '6x5'
+            st.rerun()
+    
+    st.markdown(f"當前教室佈局模式：**{st.session_state['classroom_layout']}**")
+
+    # --- 讀取學生補考數據 ---
+    # 通常座位表會針對某個年級，或者所有年級的學生，這裡需要明確如何獲取
+    # 假設我們讀取所有年級的補考者報名資料，然後統一處理
+    # 您可能需要一個機制來選擇年級，或者將所有年級的數據匯總
+    
+    # 這裡暫時只讀取一年級的補考資料作為示例
+    try:
+        # 從 '補考者報名資料' 讀取，它應該包含報名成功的學生信息
+        retest_registrants_sheet = gp.get_google_sheet_worksheet("補考者報名資料", "1") # 假設先讀取一年級
+        retest_registrants_data = retest_registrants_sheet.get_all_records()
+        
+        if not retest_registrants_data:
+            st.info("目前沒有學生報名補考資料。")
+            st.session_state['retest_students_for_seat'] = pd.DataFrame(columns=["班級", "座號", "姓名", "補考科目", "分配座位"])
+        else:
+            df = pd.DataFrame(retest_registrants_data)
+            # 確保補考科目是列表（假設原始數據中是字串，需要轉換回來）
+            # 或者，如果它是單個科目，就直接用
+            # 如果數據中的「補考科目」列有多個科目，請確保它們是單獨的列或者在讀取時處理為列表
+            
+            # 這裡需要根據您的 Google Sheet 實際存儲的列名來調整
+            # 假設原始數據有 '班級', '座號', '姓名', '科目'
+            if '分配座位' not in df.columns:
+                df['分配座位'] = '' # 新增一個空欄位供用戶編輯
+            
+            # 如果有多個科目，可能需要合併或顯示每個科目
+            # 示例：將所有科目合併為一個字串顯示
+            if '科目' in df.columns:
+                # 假設一個學生在 Google Sheet 中有多行記錄，每行一個科目
+                # 我們需要將它們按學生聚合
+                grouped_df = df.groupby(['班級', '座號', '姓名']).agg(
+                    補考科目=('科目', lambda x: ', '.join(x.unique())),
+                    分配座位=('分配座位', 'first') # 取第一個分配座位，如果每個科目行都有分配座位
+                ).reset_index()
+                st.session_state['retest_students_for_seat'] = grouped_df
+            else:
+                st.session_state['retest_students_for_seat'] = df[['班級', '座號', '姓名', '分配座位']]
+                
+        # 為了保持編輯狀態，如果之前有編輯過，就用編輯過的數據
+        if st.session_state['edited_retest_students_df'] is not None:
+             # 合併 edited_df 和原始 df，保留原始df未被編輯的列
+             # 僅更新'分配座位'列，或根據你的需求更新其他列
+            merged_df = st.session_state['retest_students_for_seat'].set_index(['班級', '座號', '姓名']).combine_first(
+                st.session_state['edited_retest_students_df'].set_index(['班級', '座號', '姓名'])
+            ).reset_index()
+            # 確保 '分配座位' 是字串類型，因為 data_editor 返回的是 object
+            merged_df['分配座位'] = merged_df['分配座位'].astype(str).fillna('')
+            st.session_state['retest_students_for_seat'] = merged_df
+
+
+    except Exception as e:
+        st.error(f"載入補考學生資料時發生錯誤：{e}")
+        st.session_state['retest_students_for_seat'] = pd.DataFrame(columns=["班級", "座號", "姓名", "補考科目", "分配座位"]) # 出錯也給個空DF
+
+    # --- 顯示可編輯表格 ---
+    if not st.session_state['retest_students_for_seat'].empty:
+        st.subheader("請在此表格中分配座位號 (例如：A1, B3)")
+        
+        # 使用 data_editor 顯示可編輯表格
+        edited_df = st.data_editor(
+            st.session_state['retest_students_for_seat'],
+            column_config={
+                "分配座位": st.column_config.TextColumn(
+                    "分配座位",
+                    help="輸入座位號，例如 A1, B3",
+                    default="",
+                    width="medium",
+                ),
+                # 這裡可以配置其他列的顯示方式，例如班級、座號、姓名設為不可編輯
+                "班級": st.column_config.TextColumn("班級", disabled=True),
+                "座號": st.column_config.TextColumn("座號", disabled=True),
+                "姓名": st.column_config.TextColumn("姓名", disabled=True),
+                "補考科目": st.column_config.TextColumn("補考科目", disabled=True),
+            },
+            hide_index=True,
+            use_container_width=True,
+            num_rows="dynamic", # 允許增刪行（如果需要）
+            key="seat_assignment_editor"
+        )
+        st.session_state['edited_retest_students_df'] = edited_df
+
+        # --- 下載按鈕 ---
+        # 這裡可以選擇下載編輯後的學生列表，或者轉換成座位表格式再下載
+        # 我會建議先下載編輯後的學生列表，因為它直接包含了用戶分配的座位信息
+        @st.cache_data # 緩存下載的數據
+        def convert_df_to_excel(df_to_convert, layout_type):
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                # 寫入編輯後的學生列表
+                df_to_convert.to_excel(writer, sheet_name='學生座位分配', index=False)
+                
+                # 可選：生成一個可視化的座位表並寫入另一個工作表
+                # 這部分需要根據 '分配座位' 欄位的內容來構建座位表DF
+                if not df_to_convert['分配座位'].str.strip().empty:
+                    max_row = 6
+                    max_col = 6 if layout_type == '6x6' else 5
+                    
+                    # 創建空的座位表DataFrame
+                    seat_map_df = pd.DataFrame(index=range(1, max_row + 1), columns=[chr(65 + i) for i in range(max_col)])
+                    
+                    for index, row in df_to_convert.iterrows():
+                        seat_info = row['分配座位'].strip().upper()
+                        if seat_info:
+                            try:
+                                col_char = seat_info[0]
+                                row_num = int(seat_info[1:])
+                                
+                                if 'A' <= col_char <= chr(65 + max_col - 1) and 1 <= row_num <= max_row:
+                                    seat_map_df.loc[row_num, col_char] = f"{row['班級']}-{row['座號']} {row['姓名']}"
+                            except (ValueError, IndexError):
+                                # 忽略格式不正確的座位號
+                                pass
+                    seat_map_df.to_excel(writer, sheet_name='座位表佈局', index=True)
+
+            processed_data = output.getvalue()
+            return processed_data
+
+        excel_data = convert_df_to_excel(edited_df, st.session_state['classroom_layout'])
+        
+        st.download_button(
+            label="下載座位表 (Excel)",
+            data=excel_data,
+            file_name=f"考生座位表_{st.session_state['classroom_layout']}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+    else:
+        st.info("沒有可用的補考學生數據來生成座位表。")
 
 def year_data_manage():
     st.title("年度資料管理")
@@ -501,7 +642,15 @@ def add_retester():
                 st.rerun()
 
 def verify_password_page(pwd_context):
-    st.title("更改/新增帳號密碼")
+    col1, col2 = st.columns([3, 1], gap="small")
+    with col1:
+        st.title("帳號管理")
+    with col2:
+        st.markdown("<div style='margin-top: 28px;'>", unsafe_allow_html=True) # 稍微調整垂直邊距
+        if st.button("回到首頁", key="back_to_home_from_upload", use_container_width=True):
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+    
     st.info("預設帳號：user；預設密碼：pass ")
     username = st.session_state['account']
 

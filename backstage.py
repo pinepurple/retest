@@ -22,6 +22,14 @@ def main_app():
         st.session_state['selected_view_type'] = 'retest_list' # 預設顯示補考名單
     if 'selected_view_grade' not in st.session_state:
         st.session_state['selected_view_grade'] = "1"
+    # 初始化 retest_seat page
+    if 'classroom_layout' not in st.session_state:
+        st.session_state['classroom_layout'] = '6x6' # 預設教室佈局
+    if 'retest_students_for_seat' not in st.session_state:
+        st.session_state['retest_students_for_seat'] = None # 儲存從 Google Sheet 讀取的學生數據
+    if 'edited_retest_students_df' not in st.session_state:
+        st.session_state['edited_retest_students_df'] = None # 儲存 data_editor 編輯後的數據
+
     
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     bf.start_password(pwd_context)
