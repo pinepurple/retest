@@ -11,7 +11,6 @@ def main_app():
         st.session_state['cloud_retest_system_manage'] = gm.open_google_sheet("補考系統資料管理")
     if 'current_page' not in st.session_state: # 儲存當前頁面狀態
         st.session_state['current_page'] = 'login'
-        tf.start_password()
     if 'account' not in st.session_state: # 儲存當前使用帳號
         st.session_state['account'] = st.secrets.get("admin", {}).get("username")
     if 'selected_view_type' not in st.session_state: # 儲存首頁顯示的表單類型(補考資料或補考名單)
@@ -38,6 +37,7 @@ def main_app():
     if st.session_state['current_page'] == 'login':
         st.title("補考資料管理系統")
         st.info("請輸入管理員帳號密碼 ( 預設帳號：user；預設密碼：pass )")
+        tf.start_password()
 
         username = st.text_input("帳號", key="admin_username_input", value = "user")
         password = st.text_input("密碼", type="password", key="admin_password_input", value = "pass")
