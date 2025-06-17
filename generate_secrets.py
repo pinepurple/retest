@@ -3,11 +3,10 @@
 import json
 import os
 
-json_file_path = 'retest-system-d96534a3f513.json' # 例如: 'service_account.json'
+json_file_path = 'retest-system-d96534a3f513.json'
 
 try:
-    # 檢查檔案是否存在
-    if not os.path.exists(json_file_path):
+    if not os.path.exists(json_file_path): # 檢查檔案是否存在
         raise FileNotFoundError(f"The file '{json_file_path}' was not found.")
 
     with open(json_file_path, 'r', encoding='utf-8') as f:
@@ -38,7 +37,7 @@ service_account_json = \"\"\"
     print("1. 登入 Streamlit Cloud，進入你的應用程式頁面。")
     print("2. 點擊右下角的 'Manage app'。")
     print("3. 選擇 'Secrets' 選項卡。")
-    ("4. 將上述內容完整貼入文本框，然後點擊 'Save secrets'。")
+    print("4. 將上述內容完整貼入文本框，然後點擊 'Save secrets'。")
     print("5. 最後，重新部署你的應用程式。")
 
 except FileNotFoundError:
