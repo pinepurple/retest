@@ -181,7 +181,7 @@ def upload_retest_list_page():
             return_data = gm.upload_to_google_sheet(auto, ['1','2','3'], uploaded_file, st.session_state['file_type_input'])
         else:
             return_data = gm.upload_to_google_sheet(auto, [grade], uploaded_file, st.session_state['file_type_input'])
-        info.info(return_data)
+        info.warning(return_data)
         time.sleep(1)
         st.rerun()
 

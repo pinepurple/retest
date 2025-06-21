@@ -81,14 +81,36 @@ def upload_to_google_sheet(auto, grade_list, uploaded_file, file_type):
 
                 i = 0
                 while i < 3 and i < len(all_sheet_names):
-                    df_list.append(dfs_dict[all_sheet_names[i]])
+                    df = dfs_dict[all_sheet_names[i]]
+                    expected_columns = ["班級", "座號", "科目", "必選修", "成績"] # 定義預期欄位，用於數據驗證
+                    if not all(col in df.columns for col in expected_columns): # 驗證 Excel 檔案是否包含所有必要的欄位
+                        missing_cols = [col for col in expected_columns if col not in df.columns]
+                        return f"上傳失敗：Excel 檔案缺少必要的欄位。缺少欄位：{', '.join(missing_cols)}"
+
+                    df_list.append(df)
                     i += 1
 
             elif file_type == 'xlsx' and auto == False:
                 df = pd.read_excel(uploaded_file, engine='openpyxl', sheet_name=0)
+
+                expected_columns = ["班級", "座號", "科目", "必選修", "成績"] # 定義預期欄位，用於數據驗證
+                if not all(col in df.columns for col in expected_columns): # 驗證 Excel 檔案是否包含所有必要的欄位
+                    missing_cols = [col for col in expected_columns if col not in df.columns]
+                    return f"上傳失敗：Excel 檔案缺少必要的欄位。缺少欄位：{', '.join(missing_cols)}"
+
+                df_list.append(df)
+
             elif file_type == 'csv':
                 df = pd.read_csv(io.StringIO(uploaded_file.getvalue().decode('utf-8')))
                 df = df.fillna('') #替換空值
+
+                expected_columns = ["班級", "座號", "科目", "必選修", "成績"] # 定義預期欄位，用於數據驗證
+                if not all(col in df.columns for col in expected_columns): # 驗證 Excel 檔案是否包含所有必要的欄位
+                    missing_cols = [col for col in expected_columns if col not in df.columns]
+                    return f"上傳失敗：Excel 檔案缺少必要的欄位。缺少欄位：{', '.join(missing_cols)}"
+
+                df_list.append(df)
+
         except FileNotFoundError:
             return "上傳失敗：找不到指定的 Excel 檔案。"
         except pd.errors.EmptyDataError:
@@ -100,24 +122,32 @@ def upload_to_google_sheet(auto, grade_list, uploaded_file, file_type):
         except UnicodeDecodeError:
             return "上傳失敗：無法以 UTF-8 編碼讀取 CSV 檔案。請確認檔案編碼。"
 
-        expected_columns = ["班級", "座號", "科目", "必選修", "成績"] # 定義預期欄位，用於數據驗證
-        if not all(col in df.columns for col in expected_columns): # 驗證 Excel 檔案是否包含所有必要的欄位
-            missing_cols = [col for col in expected_columns if col not in df.columns]
-            return f"上傳失敗：Excel 檔案缺少必要的欄位。缺少欄位：{', '.join(missing_cols)}"
+        data_num = 0
+        for df in df_list:
+            first_record_series = df.iloc[0]
+            class_name = int(str(first_record_series['班級'])[0])
 
-        status_message_placeholder = st.warning(f"正在清空 {worksheet.title} 並上傳資料中...")
-        clear_google_sheet_data(worksheet)
-        status_message_placeholder.empty()
+            if auto:
+                worksheet = worksheet_list[class_name - 1]
+            else:
+                worksheet = worksheet_list[0]
 
-        # 將 DataFrame 轉換為列表的列表 (包含標頭行)，以便 gspread 進行更新
-        data_to_upload = [df.columns.tolist()] + df.values.tolist()
-        try:
-            worksheet.update(values=data_to_upload)
-            return f"{worksheet.title} 已成功更新！共上傳 {len(df)} 筆資料。"
-        except gspread.exceptions.APIError as e:
-            return f"更新 Google Sheet 時發生 API 錯誤：{e}。請檢查服務帳戶權限。"
-        except Exception as e:
-            return f"更新 Google Sheet 時發生未預期的錯誤：{e}"
+            status_message_placeholder = st.warning(f"正在清空 {worksheet.title} 並上傳資料中...")
+            clear_google_sheet_data(worksheet)
+            status_message_placeholder.empty()
+
+            # 將 DataFrame 轉換為列表的列表 (包含標頭行)，以便 gspread 進行更新
+            data_to_upload = [df.columns.tolist()] + df.values.tolist()
+            try:
+                worksheet.update(values=data_to_upload)
+                data_num += len(df)
+                if auto == False:
+                    return f"{worksheet.title} 已成功更新！共上傳 {len(df)} 筆資料。"
+            except gspread.exceptions.APIError as e:
+                return f"更新 Google Sheet 時發生 API 錯誤：{e}。請檢查服務帳戶權限。"
+            except Exception as e:
+                return f"更新 Google Sheet 時發生未預期的錯誤：{e}"
+        return f"雲端資料已成功更新！共更新 {len(df_list)} 個工作表，共 {data_num} 筆資料。"
     except Exception as e:
         return f"上傳補考名單時發生錯誤：{e}"
     
